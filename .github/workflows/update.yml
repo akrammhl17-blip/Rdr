@@ -1,6 +1,11 @@
 name: update-signals
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "watchlist.json"
+      - ".github/workflows/update.yml"
   schedule:
     - cron: "30 21 * * 1-5"
   workflow_dispatch:
