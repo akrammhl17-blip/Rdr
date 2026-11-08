@@ -1,0 +1,18 @@
+[
+  {"symbol": "GC=F",    "name": "الذهب",              "group": "سلع"},
+  {"symbol": "SI=F",    "name": "الفضة",              "group": "سلع"},
+  {"symbol": "CL=F",    "name": "النفط الخام",         "group": "سلع"},
+  {"symbol": "^GSPC",   "name": "مؤشر S&P 500",       "group": "مؤشرات"},
+  {"symbol": "^NDX",    "name": "مؤشر ناسداك 100",    "group": "مؤشرات"},
+  {"symbol": "AAPL",    "name": "Apple",              "group": "أسهم"},
+  {"symbol": "MSFT",    "name": "Microsoft",          "group": "أسهم"},
+  {"symbol": "NVDA",    "name": "Nvidia",             "group": "أسهم"},
+  {"symbol": "GOOGL",   "name": "Alphabet",           "group": "أسهم"},
+  {"symbol": "AMZN",    "name": "Amazon",             "group": "أسهم"},
+  {"symbol": "META",    "name": "Meta",               "group": "أسهم"},
+  {"symbol": "TSLA",    "name": "Tesla",              "group": "أسهم"},
+  {"symbol": "JPM",     "name": "JPMorgan",           "group": "أسهم"},
+  {"symbol": "KO",      "name": "Coca-Cola",          "group": "أسهم"},
+  {"symbol": "BRK-B",   "name": "Berkshire Hathaway", "group": "أسهم"},
+  {"symbol": "BTC-USD", "name": "بيتكوين",            "group": "عملات رقمية"}
+]

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>رادار الفرص</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1b1f24; --muted: #66707d;
+    --line: #e2e5ea; --good: #0f7b4f; --bad: #b3261e; --warn: #9a6700; --accent: #1f5fbf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --card: #1a1f26; --text: #e8ebef; --muted: #98a2b0;
+      --line: #2a313b; --good: #4cc38a; --bad: #ff8a80; --warn: #e0b341; --accent: #7aa7ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; line-height: 1.6;
+  }
+  header, main, footer { max-width: 980px; margin: 0 auto; padding: 16px; }
+  h1 { margin: 8px 0 2px; font-size: 1.6rem; }
+  .sub { color: var(--muted); font-size: .9rem; }
+  .warn {
+    background: var(--card); border: 1px solid var(--warn); color: var(--text);
+    border-radius: 10px; padding: 10px 14px; margin: 14px 0; font-size: .9rem;
+  }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .filters button {
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; font: inherit; font-size: .9rem;
+  }
+  .filters button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .name { font-weight: 700; }
+  .sym { color: var(--muted); font-size: .8rem; direction: ltr; display: inline-block; }
+  .price { font-size: 1.25rem; font-weight: 700; direction: ltr; }
+  .chg { direction: ltr; display: inline-block; font-size: .85rem; }
+  .up { color: var(--good); } .down { color: var(--bad); }
+  .tag { display: inline-block; margin: 8px 0 4px; padding: 2px 10px; border-radius: 999px; font-size: .8rem; border: 1px solid currentColor; }
+  .tag.good { color: var(--good); } .tag.bad { color: var(--bad); } .tag.mid { color: var(--warn); }
+  .score { color: var(--muted); font-size: .8rem; margin-inline-start: 6px; }
+  table.plan { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: .85rem; }
+  table.plan td { padding: 3px 0; border-top: 1px solid var(--line); }
+  table.plan td:last-child { direction: ltr; text-align: left; font-weight: 600; }
+  details { margin-top: 8px; font-size: .85rem; color: var(--muted); }
+  details ul { margin: 6px 0 0; padding-inline-start: 18px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; }
+  footer { color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>رادار الفرص</h1>
+  <div class="sub" id="updated">جارٍ التحميل…</div>
+  <div class="warn">
+    هذه إشارات تُحسب آلياً بقواعد فنية بسيطة (المتوسطات المتحركة وRSI وATR) على أسعار اليوم السابق،
+    وليست توقعات ولا نصيحة مالية. قد تخسر مالك. تحقق دائماً من السعر الحالي عند وسيطك وحدّد حجم المخاطرة بنفسك.
+  </div>
+  <div class="filters" id="filters"></div>
+</header>
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden></div>
+</main>
+<footer>المصدر: Yahoo Finance (غير رسمي) · يتحدث تلقائياً عبر GitHub Actions أيام الأسبوع.</footer>
+
+<script>
+(function () {
+  var FILTERS = [
+    { id: "all", label: "الكل" },
+    { id: "opps", label: "فرص محتملة" },
+    { id: "watch", label: "للمراقبة" },
+    { id: "avoid", label: "تجنّب" }
+  ];
+  var OPP = ["breakout", "pullback", "uptrend"];
+  var current = "all", items = [];
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+  function num(x) {
+    return x === null || x === undefined ? "–" :
+      Number(x).toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
+  function chg(label, v) {
+    var s = el("span", "chg " + (v >= 0 ? "up" : "down"),
+      label + " " + (v >= 0 ? "+" : "") + num(v) + "%");
+    return s;
+  }
+  function groupOf(i) {
+    if (OPP.indexOf(i.setup) >= 0) return "opps";
+    if (i.setup === "avoid") return "avoid";
+    return "watch";
+  }
+
+  function card(i) {
+    var c = el("div", "card");
+    var top = el("div", "top");
+    var left = el("div");
+    left.appendChild(el("div", "name", i.name));
+    left.appendChild(el("span", "sym", i.symbol + " · " + (i.group || "")));
+    var right = el("div");
+    right.appendChild(el("div", "price", num(i.price) + " " + (i.currency || "")));
+    top.appendChild(left); top.appendChild(right);
+    c.appendChild(top);
+
+    var row = el("div");
+    if (i.chg_1d !== null) row.appendChild(chg("يوم", i.chg_1d));
+    if (i.chg_1m !== null) { row.appendChild(document.createTextNode(" · ")); row.appendChild(chg("شهر", i.chg_1m)); }
+    if (i.chg_3m !== null) { row.appendChild(document.createTextNode(" · ")); row.appendChild(chg("3 أشهر", i.chg_3m)); }
+    c.appendChild(row);
+
+    var kind = OPP.indexOf(i.setup) >= 0 ? "good" : (i.setup === "avoid" ? "bad" : "mid");
+    var tag = el("span", "tag " + kind, i.label);
+    c.appendChild(tag);
+    c.appendChild(el("span", "score", "النقاط: " + i.score));
+
+    if (i.plan) {
+      var t = el("table", "plan");
+      [["الدخول (آخر إغلاق)", i.plan.entry], ["وقف الخسارة", i.plan.stop],
+       ["الهدف", i.plan.target]].forEach(function (r) {
+        var tr = el("tr");
+        tr.appendChild(el("td", null, r[0]));
+        tr.appendChild(el("td", null, num(r[1])));
+        t.appendChild(tr);
+      });
+      var tr2 = el("tr");
+      tr2.appendChild(el("td", null, "المخاطرة إلى العائد"));
+      tr2.appendChild(el("td", null, "1 : " + i.plan.rr + "  (مخاطرة " + num(i.plan.risk_pct) + "%)"));
+      t.appendChild(tr2);
+      c.appendChild(t);
+    }
+
+    var d = el("details");
+    d.appendChild(el("summary", null, "لماذا هذا التصنيف؟"));
+    var ul = el("ul");
+    i.reasons.forEach(function (r) { ul.appendChild(el("li", null, r)); });
+    d.appendChild(ul);
+    c.appendChild(d);
+    return c;
+  }
+
+  function render() {
+    var grid = document.getElementById("grid");
+    var empty = document.getElementById("empty");
+    grid.textContent = "";
+    var list = items.filter(function (i) { return current === "all" || groupOf(i) === current; });
+    list.forEach(function (i) { grid.appendChild(card(i)); });
+    empty.hidden = list.length > 0;
+    if (!list.length) empty.textContent = items.length ? "لا توجد عناصر في هذا التصنيف." :
+      "لا توجد بيانات بعد. شغّل الـ workflow مرة واحدة من تبويب Actions.";
+    Array.prototype.forEach.call(document.querySelectorAll("#filters button"), function (b) {
+      b.setAttribute("aria-pressed", b.dataset.id === current ? "true" : "false");
+    });
+  }
+
+  var fbox = document.getElementById("filters");
+  FILTERS.forEach(function (f) {
+    var b = el("button", null, f.label);
+    b.dataset.id = f.id;
+    b.addEventListener("click", function () { current = f.id; render(); });
+    fbox.appendChild(b);
+  });
+
+  fetch("data/signals.json?t=" + Date.now())
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      items = d.items || [];
+      document.getElementById("updated").textContent =
+        d.generated_at ? "آخر تحديث: " + d.generated_at : "لم يُحدَّث بعد";
+      render();
+    })
+    .catch(function () {
+      document.getElementById("updated").textContent = "تعذّر تحميل البيانات";
+      render();
+    });
+})();
+</script>
+</body>
+</html>
